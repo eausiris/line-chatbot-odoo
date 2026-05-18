@@ -1,5 +1,12 @@
-def product_card(product: dict) -> dict:
+NO_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/No-Image-Placeholder.svg/330px-No-Image-Placeholder.svg.png"
+
+
+def product_card(product: dict, odoo_url: str = "") -> dict:
     uom = product.get("uom", "ชิ้น")
+    image_url = product.get("image_url") or NO_IMAGE_URL
+
+    # Product URL ใน Odoo
+    product_url = f"{odoo_url}/odoo/inventory/products/{product['template_id']}" if odoo_url else ""
 
     variant_rows = []
     for v in product.get("variants", [])[:5]:
@@ -48,10 +55,8 @@ def product_card(product: dict) -> dict:
             "type": "box", "layout": "horizontal",
             "contents": [
                 {"type": "text", "text": "หน่วย", "size": "xs", "color": "#BDC3C7", "flex": 2},
-                {"type": "text", "text": "ราคา", "size": "xs", "color": "#BDC3C7",
-                 "align": "center", "flex": 2},
-                {"type": "text", "text": "คงเหลือ", "size": "xs", "color": "#BDC3C7",
-                 "align": "end", "flex": 2},
+                {"type": "text", "text": "ราคา", "size": "xs", "color": "#BDC3C7", "align": "center", "flex": 2},
+                {"type": "text", "text": "คงเหลือ", "size": "xs", "color": "#BDC3C7", "align": "end", "flex": 2},
             ],
         })
         body_contents.extend(variant_rows)
@@ -64,40 +69,96 @@ def product_card(product: dict) -> dict:
         })
         body_contents.extend(stock_rows)
 
+    # Footer buttons (ชิดขอบล่างเท่ากันทุกการ์ด)
+    footer_buttons = [
+        {
+            "type": "button", "style": "primary", "color": "#1A1A2E", "height": "sm",
+            "action": {
+                "type": "message", "label": "\U0001f6d2 เพิ่มลงตะกร้า",
+                "text": f"เพิ่มสินค้า {product['name']} ลงตะกร้า",
+            },
+        },
+    ]
+
+    # ปุ่มรายละเอียด (ถ้ามี URL)
+    if product_url:
+        footer_buttons.append({
+            "type": "button", "style": "secondary", "height": "sm",
+            "action": {
+                "type": "uri", "label": "\U0001f4cb รายละเอียด",
+                "uri": product_url,
+            },
+        })
+
     bubble = {
         "type": "bubble", "size": "mega",
+        "hero": {
+            "type": "image",
+            "url": image_url,
+            "size": "full",
+            "aspectRatio": "4:3",
+            "aspectMode": "cover",
+            "action": {"type": "uri", "label": "view", "uri": image_url},
+        },
         "body": {
             "type": "box", "layout": "vertical",
             "spacing": "sm", "paddingAll": "16px",
             "contents": body_contents,
         },
         "footer": {
-            "type": "box", "layout": "horizontal", "spacing": "sm",
+            "type": "box", "layout": "vertical",
+            "spacing": "sm", "paddingAll": "12px",
+            "contents": footer_buttons,
+        },
+    }
+
+    return bubble
+
+
+def view_all_card(total_count: int, odoo_url: str = "") -> dict:
+    """การ์ดสุดท้าย: ดูสินค้าทั้งหมด"""
+    shop_url = f"{odoo_url}/shop" if odoo_url else "https://odoo.com"
+    return {
+        "type": "bubble", "size": "mega",
+        "body": {
+            "type": "box", "layout": "vertical",
+            "justifyContent": "center",
+            "contents": [
+                {"type": "text", "text": "\U0001f6d2",
+                 "size": "5xl", "align": "center"},
+                {"type": "text",
+                 "text": f"มีสินค้าทั้งหมด\n{total_count} รายการ",
+                 "weight": "bold", "size": "xl", "align": "center",
+                 "wrap": True, "color": "#1A1A2E"},
+                {"type": "text", "text": "กดเพื่อดูสินค้าทั้งหมด",
+                 "size": "sm", "color": "#7F8C8D", "align": "center"},
+            ],
+        },
+        "footer": {
+            "type": "box", "layout": "vertical",
             "contents": [{
-                "type": "button", "style": "primary", "color": "#1A1A2E", "height": "sm",
+                "type": "button", "style": "primary", "color": "#E74C3C",
                 "action": {
-                    "type": "message", "label": "\U0001f6d2 เพิ่มลงตะกร้า",
-                    "text": f"เพิ่มสินค้า {product['name']} ลงตะกร้า",
+                    "type": "uri",
+                    "label": "\U0001f4e6 ดูสินค้าทั้งหมด",
+                    "uri": shop_url,
                 },
             }],
         },
     }
 
-    if product.get("image_url"):
-        bubble["hero"] = {
-            "type": "image",
-            "url": product["image_url"],
-            "size": "full",
-            "aspectRatio": "4:3",
-            "aspectMode": "cover",
-            "action": {"type": "uri", "label": "view", "uri": product["image_url"]},
-        }
 
-    return bubble
+def product_carousel(products: list, total_count: int = 0, odoo_url: str = "") -> dict:
+    """สร้าง Carousel สินค้า ถ้ามีมากกว่า 5 ชิ้น การ์ดสุดท้ายเป็น 'ดูทั้งหมด'"""
+    MAX_SHOW = 9  # LINE รองรับสูงสุด 10 bubbles
 
+    bubbles = [product_card(p, odoo_url) for p in products[:MAX_SHOW]]
 
-def product_carousel(products: list) -> dict:
-    return {"type": "carousel", "contents": [product_card(p) for p in products[:10]]}
+    # ถ้ามีสินค้ามากกว่าที่แสดง ใส่การ์ด "ดูทั้งหมด"
+    if total_count > len(products) or len(products) > MAX_SHOW:
+        bubbles.append(view_all_card(total_count or len(products), odoo_url))
+
+    return {"type": "carousel", "contents": bubbles}
 
 
 def order_summary_bubble(cart_items: list, quotation: dict = None) -> dict:
@@ -116,6 +177,12 @@ def order_summary_bubble(cart_items: list, quotation: dict = None) -> dict:
                  "size": "sm", "align": "end", "flex": 1},
             ],
         })
+        if item.get("stock_warning"):
+            line_contents.append({
+                "type": "text",
+                "text": f"\u26a0\ufe0f สต็อกมีแค่ {item.get('available_stock', 0)}",
+                "size": "xs", "color": "#E74C3C"
+            })
 
     if quotation:
         warn_rows = [
