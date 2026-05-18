@@ -6,7 +6,7 @@ def product_card(product: dict, odoo_url: str = "") -> dict:
     image_url = product.get("image_url") or NO_IMAGE_URL
 
     # Product URL ใน Odoo
-    product_url = f"{odoo_url}/odoo/inventory/products/{product['template_id']}" if odoo_url else ""
+    product_url = f"{odoo_url}/shop/product/{product['template_id']}" if odoo_url else ""
 
     variant_rows = []
     for v in product.get("variants", [])[:5]:

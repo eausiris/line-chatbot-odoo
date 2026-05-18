@@ -91,14 +91,20 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
         else:
             session["last_viewed_product"] = products[0]
             await session_service.save_session(user_id, session)
-            total_count = len(products)
+            domain = [["sale_ok", "=", True], ["active", "=", True]]
+if entities.get("product_name"):
+    domain.append(["name", "ilike", entities.get("product_name", "")])
+if entities.get("category"):
+    domain.append(["categ_id.name", "ilike", entities.get("category", "")])
+total_count = odoo._execute("product.template", "search_count", domain)
+reply_text = f"พบสินค้า {total_count} รายการครับ 👇" if total_count <= 5 else f"พบสินค้าทั้งหมด {total_count} รายการ แสดง 5 รายการแรกครับ 👇"
             flex_content = product_carousel(
                 products,
                 total_count=total_count,
                 odoo_url=settings.odoo_url
             )
             reply_messages = [
-                TextMessage(text=f"พบสินค้า {len(products)} รายการครับ 👇"),
+                TextMessage(text=reply_text),
                 FlexMessage(
                     alt_text="รายการสินค้า",
                     contents=FlexContainer.from_dict(flex_content)
