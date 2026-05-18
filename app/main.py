@@ -76,7 +76,7 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
 
     if intent == "greeting":
         reply_messages = [
-            TextMessage(text=f"Hello! Welcome to {settings.business_name}\nAsk about products, prices or order anytime!")
+            TextMessage(text=f"สวัสดีครับ! ยินดีต้อนรับสู่ {settings.business_name}\nถามถึงสินค้า ราคา หรือสั่งซื้อได้เลยครับ")
         ]
 
     elif intent == "search_product":
@@ -86,33 +86,32 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
         )
         if not products:
             reply_messages = [
-                TextMessage(text=f"Sorry, no product found for '{entities.get('product_name', '')}'. Please try another keyword.")
+                TextMessage(text=f"ขออภัยครับ ไม่พบสินค้า '{entities.get('product_name', '')}' ลองค้นหาคำอื่นได้เลยครับ")
             ]
         else:
             session["last_viewed_product"] = products[0]
             await session_service.save_session(user_id, session)
 
+            keyword = entities.get("product_name", "")
             domain = [["sale_ok", "=", True], ["active", "=", True]]
-            if entities.get("product_name"):
-                domain.append(["name", "ilike", entities.get("product_name", "")])
+            if keyword:
+                domain.append(["name", "ilike", keyword])
             if entities.get("category"):
                 domain.append(["categ_id.name", "ilike", entities.get("category", "")])
             total_count = odoo._execute("product.template", "search_count", domain)
 
-            if total_count <= 5:
-                reply_text = f"Found {total_count} products"
-            else:
-                reply_text = f"Found {total_count} products, showing first 5"
+            reply_text = f"พบสินค้า {total_count} รายการครับ 👇"
 
             flex_content = product_carousel(
                 products,
                 total_count=total_count,
-                odoo_url=settings.odoo_url
+                odoo_url=settings.odoo_url,
+                keyword=keyword
             )
             reply_messages = [
                 TextMessage(text=reply_text),
                 FlexMessage(
-                    alt_text="Product list",
+                    alt_text="รายการสินค้า",
                     contents=FlexContainer.from_dict(flex_content)
                 )
             ]
@@ -120,33 +119,33 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
     elif intent == "add_to_cart":
         product = session.get("last_viewed_product")
         if not product:
-            reply_messages = [TextMessage(text="Please select a product first")]
+            reply_messages = [TextMessage(text="กรุณาเลือกสินค้าก่อนครับ 🙏")]
         else:
             qty = int(entities.get("quantity") or 1)
             await session_service.add_to_cart(user_id, product, qty=qty)
             session = await session_service.get_session(user_id)
             summary = order_summary_bubble(session["cart"])
             reply_messages = [
-                TextMessage(text=f"Added {product['name']} x{qty} to cart!"),
-                FlexMessage(alt_text="Cart",
+                TextMessage(text=f"เพิ่ม {product['name']} x{qty} ลงตะกร้าแล้วครับ! 🛒"),
+                FlexMessage(alt_text="ตะกร้าสินค้า",
                             contents=FlexContainer.from_dict(summary))
             ]
 
     elif intent == "view_cart":
         session = await session_service.get_session(user_id)
         if not session["cart"]:
-            reply_messages = [TextMessage(text="Your cart is empty")]
+            reply_messages = [TextMessage(text="ตะกร้าของคุณยังว่างอยู่ครับ 😊")]
         else:
             summary = order_summary_bubble(session["cart"])
             reply_messages = [
-                FlexMessage(alt_text="Cart",
+                FlexMessage(alt_text="ตะกร้าสินค้า",
                             contents=FlexContainer.from_dict(summary))
             ]
 
     elif intent == "create_quotation":
         session = await session_service.get_session(user_id)
         if not session["cart"]:
-            reply_messages = [TextMessage(text="Cart is empty")]
+            reply_messages = [TextMessage(text="ยังไม่มีสินค้าในตะกร้าครับ 🙏")]
         else:
             try:
                 profile = await line_api.get_profile(user_id)
@@ -158,14 +157,14 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
             quotation = odoo.create_quotation(partner_id, session["cart"])
             summary = order_summary_bubble(session["cart"], quotation=quotation)
             reply_messages = [
-                FlexMessage(alt_text=f"Quotation {quotation['order_name']}",
+                FlexMessage(alt_text=f"ใบเสนอราคา {quotation['order_name']}",
                             contents=FlexContainer.from_dict(summary))
             ]
             await session_service.clear_cart(user_id)
 
     else:
         reply_messages = [
-            TextMessage(text="Sorry, please type the product name you are looking for")
+            TextMessage(text="ขออภัยครับ ลองพิมพ์ชื่อสินค้าที่ต้องการได้เลยครับ 😊")
         ]
 
     if reply_messages:
