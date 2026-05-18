@@ -1,0 +1,9 @@
+﻿fastapi
+uvicorn
+httpx
+anthropic
+redis
+python-dotenv
+line-bot-sdk
+pydantic
+pydantic-settings
