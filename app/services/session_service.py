@@ -30,6 +30,7 @@ class SessionService:
         )
 
     async def add_to_cart(self, user_id: str, product: dict, qty: int = 1) -> None:
+        """เพิ่มจำนวนสินค้าในตะกร้า (บวกเพิ่ม)"""
         session = await self.get_session(user_id)
         for item in session["cart"]:
             if item["product_id"] == product["id"]:
@@ -42,6 +43,27 @@ class SessionService:
             "price_unit": product["price"],
             "qty": qty,
         })
+        await self.save_session(user_id, session)
+
+    async def set_cart_qty(self, user_id: str, product: dict, qty: int) -> None:
+        """ตั้งจำนวนสินค้าในตะกร้า (set ตรงๆ)"""
+        session = await self.get_session(user_id)
+        for item in session["cart"]:
+            if item["product_id"] == product["id"]:
+                if qty <= 0:
+                    session["cart"].remove(item)
+                else:
+                    item["qty"] = qty
+                await self.save_session(user_id, session)
+                return
+        # ถ้ายังไม่มีในตะกร้า ให้เพิ่มใหม่
+        if qty > 0:
+            session["cart"].append({
+                "product_id": product["id"],
+                "name": product["name"],
+                "price_unit": product["price"],
+                "qty": qty,
+            })
         await self.save_session(user_id, session)
 
     async def clear_cart(self, user_id: str) -> None:

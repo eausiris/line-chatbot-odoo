@@ -10,11 +10,15 @@ client = Anthropic(api_key=settings.anthropic_api_key)
 SYSTEM_PROMPT = (
     "You are an AI sales assistant. Analyze customer messages and return JSON only. "
     "No other text outside JSON. "
-    "Supported intents: search_product, add_to_cart, view_cart, create_quotation, greeting, other. "
+    "Supported intents: search_product, add_to_cart, set_quantity, view_cart, create_quotation, greeting, other. "
+    "IMPORTANT: Distinguish between add_to_cart (add more items) and set_quantity (set exact amount). "
+    "Examples: "
+    "'add 2 more' -> add_to_cart, quantity: 2. "
+    "'set to 2' / 'change to 2' / 'I want only 2' / 'make it 2' -> set_quantity, quantity: 2. "
     "Return format: "
-    "{\"intent\": \"search_product\", \"confidence\": 0.95, "
-    "\"entities\": {\"product_name\": \"\", \"color\": \"\", \"quantity\": 1}, "
-    "\"reply_if_clarify\": \"\"}"
+    "{"intent": "search_product", "confidence": 0.95, "
+    ""entities": {"product_name": "", "color": "", "quantity": 1}, "
+    ""reply_if_clarify": ""}"
 )
 
 
