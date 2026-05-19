@@ -1,4 +1,4 @@
-import json
+content = """import json
 import logging
 from anthropic import Anthropic
 from app.config import get_settings
@@ -15,9 +15,9 @@ SYSTEM_PROMPT = (
     "add_to_cart = add more items on top of current amount. "
     "set_quantity = change cart to exact number (keywords: เปลี่ยนเป็น, ขอแค่, เอาแค่, set เป็น, แก้เป็น). "
     "Return format: "
-    '{"intent": "search_product", "confidence": 0.95, '
-    '"entities": {"product_name": "", "category": "", "quantity": 1}, '
-    '"reply_if_clarify": ""}'
+    '{\"intent\": \"search_product\", \"confidence\": 0.95, '
+    '\"entities\": {\"product_name\": \"\", \"category\": \"\", \"quantity\": 1}, '
+    '\"reply_if_clarify\": \"\"}'
 )
 
 
@@ -51,3 +51,8 @@ async def parse_intent(user_message: str, conversation_history: list) -> dict:
             "entities": {},
             "reply_if_clarify": ""
         }
+"""
+
+with open("app/services/claude_service.py", "w", encoding="utf-8") as f:
+    f.write(content)
+print("claude_service.py written")
