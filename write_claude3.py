@@ -1,4 +1,4 @@
-import json
+content = """import json
 import logging
 from anthropic import Anthropic
 from app.config import get_settings
@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 client = Anthropic(api_key=settings.anthropic_api_key)
 
-SYSTEM_PROMPT = """You are a JSON-only intent classifier for a Thai bakery supply store chatbot.
+SYSTEM_PROMPT = \"\"\"You are a JSON-only intent classifier for a Thai bakery supply store chatbot.
 
 RULES:
 - Always respond with ONLY a valid JSON object
@@ -37,7 +37,7 @@ Output: {"intent":"set_quantity","confidence":0.95,"entities":{"product_name":""
 Input: "ดูตะกร้า"
 Output: {"intent":"view_cart","confidence":0.95,"entities":{"product_name":"","category":"","quantity":1},"reply_if_clarify":""}
 
-Always output ONLY the JSON object, nothing else."""
+Always output ONLY the JSON object, nothing else.\"\"\"
 
 
 async def parse_intent(user_message: str, conversation_history: list) -> dict:
@@ -77,3 +77,8 @@ async def parse_intent(user_message: str, conversation_history: list) -> dict:
             "entities": {},
             "reply_if_clarify": ""
         }
+"""
+
+with open("app/services/claude_service.py", "w", encoding="utf-8") as f:
+    f.write(content)
+print("claude_service.py written")
