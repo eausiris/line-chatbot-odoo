@@ -1,4 +1,4 @@
-import json
+content = """import json
 import logging
 from anthropic import Anthropic
 from app.config import get_settings
@@ -12,7 +12,7 @@ SYSTEM_PROMPT = (
     "Analyze customer messages and return ONLY a JSON object, nothing else. "
     "No markdown, no explanation, no Thai text outside JSON. "
     "JSON format: "
-    '{"intent":"search_product","confidence":0.95,"entities":{"product_name":"","category":"","quantity":1},"reply_if_clarify":""} '
+    '{\"intent\":\"search_product\",\"confidence\":0.95,\"entities\":{\"product_name\":\"\",\"category\":\"\",\"quantity\":1},\"reply_if_clarify\":\"\"} '
     "Intents: search_product, add_to_cart, set_quantity, view_cart, create_quotation, greeting, other. "
     "set_quantity = change to exact number. add_to_cart = add more."
 )
@@ -57,3 +57,8 @@ async def parse_intent(user_message: str, conversation_history: list) -> dict:
             "entities": {},
             "reply_if_clarify": ""
         }
+"""
+
+with open("app/services/claude_service.py", "w", encoding="utf-8") as f:
+    f.write(content)
+print("claude_service.py written")
