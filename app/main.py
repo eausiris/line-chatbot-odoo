@@ -25,22 +25,16 @@ settings = get_settings()
 line_config = Configuration(access_token=settings.line_channel_access_token)
 line_parser = WebhookParser(settings.line_channel_secret)
 
-CLEAR_CART_KEYWORDS = ["ล้างตะกร้า", "เคลียร์ตะกร้า", "clear cart", "ลบทั้งหมด"]
-VIEW_CART_KEYWORDS = ["ดูตะกร้า", "ตะกร้าของฉัน", "รายการสั่งซื้อ"]
-CONFIRM_KEYWORDS = ["ยืนยันสั่งซื้อ", "ยืนยันการสั่งซื้อ"]
+CLEAR_CART_EXACT = ["ล้างตะกร้า", "เคลียร์ตะกร้า", "clear cart"]
+CONFIRM_EXACT = ["ยืนยันสั่งซื้อ", "ยืนยันการสั่งซื้อ"]
 
 
 def detect_keyword_intent(text: str) -> str:
-    t = text.lower().strip()
-    for kw in CLEAR_CART_KEYWORDS:
-        if kw in t:
-            return "clear_cart"
-    for kw in CONFIRM_KEYWORDS:
-        if kw in t:
-            return "create_quotation"
-    for kw in VIEW_CART_KEYWORDS:
-        if kw in t:
-            return "view_cart"
+    t = text.strip()
+    if t in CLEAR_CART_EXACT:
+        return "clear_cart"
+    if t in CONFIRM_EXACT:
+        return "create_quotation"
     return ""
 
 
@@ -57,22 +51,15 @@ app = FastAPI(title="LINE Odoo Bot", lifespan=lifespan)
 async def webhook(request: Request):
     signature = request.headers.get("X-Line-Signature", "")
     body = await request.body()
-
-    expected = base64.b64encode(
-        hmac.new(settings.line_channel_secret.encode(), body, hashlib.sha256).digest()
-    ).decode()
-
+    expected = base64.b64encode(hmac.new(settings.line_channel_secret.encode(), body, hashlib.sha256).digest()).decode()
     if not hmac.compare_digest(signature, expected):
         raise HTTPException(status_code=403, detail="Invalid Signature")
-
     events = line_parser.parse(body.decode(), signature)
-
     async with AsyncApiClient(line_config) as api_client:
         line_api = AsyncMessagingApi(api_client)
         for event in events:
             if isinstance(event, MessageEvent) and isinstance(event.message, TextMessageContent):
                 await handle_text_message(line_api, event)
-
     return {"status": "ok"}
 
 
@@ -80,7 +67,6 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
     user_id = event.source.user_id
     user_text = event.message.text
     reply_token = event.reply_token
-
     logger.info(f"User [{user_id}]: {user_text}")
 
     session = await session_service.get_session(user_id)
@@ -94,51 +80,32 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
         intent = intent_data.get("intent", "other")
         entities = intent_data.get("entities", {})
 
-    # บันทึก history เฉพาะ user message (ไม่บันทึก assistant intent)
     await session_service.append_history(user_id, "user", user_text)
 
     reply_messages = []
 
     if intent == "greeting":
-        reply_messages = [
-            TextMessage(text=f"สวัสดีครับ! ยินดีต้อนรับสู่ {settings.business_name}\nถามถึงสินค้า ราคา หรือสั่งซื้อได้เลยครับ")
-        ]
+        reply_messages = [TextMessage(text=f"สวัสดีครับ! ยินดีต้อนรับสู่ {settings.business_name}\nถามถึงสินค้า ราคา หรือสั่งซื้อได้เลยครับ")]
 
     elif intent == "search_product":
         keyword = entities.get("product_name", "")
-        products = odoo.search_products(
-            keyword=keyword,
-            category=entities.get("category", ""),
-        )
+        products = odoo.search_products(keyword=keyword, category=entities.get("category", ""))
         if not products:
-            reply_messages = [
-                TextMessage(text=f"ขออภัยครับ ไม่พบ '{keyword}' ลองค้นหาคำอื่นได้เลยครับ")
-            ]
+            reply_messages = [TextMessage(text=f"ขออภัยครับ ไม่พบ '{keyword}' ลองค้นหาคำอื่นได้เลยครับ")]
         else:
             session["last_viewed_product"] = products[0]
             await session_service.save_session(user_id, session)
-
             domain = [["sale_ok", "=", True], ["active", "=", True]]
             if keyword:
                 domain.append(["name", "ilike", keyword])
             if entities.get("category"):
                 domain.append(["categ_id.name", "ilike", entities.get("category", "")])
             total_count = odoo._execute("product.template", "search_count", domain)
-
             reply_text = f"มี{keyword} {total_count} รายการครับ 👇" if keyword else f"พบสินค้า {total_count} รายการครับ 👇"
-
-            flex_content = product_carousel(
-                products,
-                total_count=total_count,
-                odoo_url=settings.odoo_url,
-                keyword=keyword
-            )
+            flex_content = product_carousel(products, total_count=total_count, odoo_url=settings.odoo_url, keyword=keyword)
             reply_messages = [
                 TextMessage(text=reply_text),
-                FlexMessage(
-                    alt_text="รายการสินค้า",
-                    contents=FlexContainer.from_dict(flex_content)
-                )
+                FlexMessage(alt_text="รายการสินค้า", contents=FlexContainer.from_dict(flex_content))
             ]
 
     elif intent == "add_to_cart":
@@ -152,8 +119,7 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
             summary = order_summary_bubble(session["cart"])
             reply_messages = [
                 TextMessage(text=f"เพิ่ม {product['name']} x{qty} ลงตะกร้าแล้วครับ! 🛒"),
-                FlexMessage(alt_text="ตะกร้าสินค้า",
-                            contents=FlexContainer.from_dict(summary))
+                FlexMessage(alt_text="ตะกร้าสินค้า", contents=FlexContainer.from_dict(summary))
             ]
 
     elif intent == "set_quantity":
@@ -167,8 +133,7 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
             summary = order_summary_bubble(session["cart"])
             reply_messages = [
                 TextMessage(text=f"ปรับจำนวน {product['name']} เป็น {qty} ชิ้นแล้วครับ ✅"),
-                FlexMessage(alt_text="ตะกร้าสินค้า",
-                            contents=FlexContainer.from_dict(summary))
+                FlexMessage(alt_text="ตะกร้าสินค้า", contents=FlexContainer.from_dict(summary))
             ]
 
     elif intent == "view_cart":
@@ -177,10 +142,7 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
             reply_messages = [TextMessage(text="ตะกร้าของคุณยังว่างอยู่ครับ 😊")]
         else:
             summary = order_summary_bubble(session["cart"])
-            reply_messages = [
-                FlexMessage(alt_text="ตะกร้าสินค้า",
-                            contents=FlexContainer.from_dict(summary))
-            ]
+            reply_messages = [FlexMessage(alt_text="ตะกร้าสินค้า", contents=FlexContainer.from_dict(summary))]
 
     elif intent == "clear_cart":
         await session_service.clear_cart(user_id)
@@ -196,25 +158,17 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
                 display_name = profile.display_name
             except Exception:
                 display_name = "LINE User"
-
             partner_id = odoo.get_or_create_partner(user_id, display_name)
             quotation = odoo.create_quotation(partner_id, session["cart"])
             summary = order_summary_bubble(session["cart"], quotation=quotation)
-            reply_messages = [
-                FlexMessage(alt_text=f"ใบเสนอราคา {quotation['order_name']}",
-                            contents=FlexContainer.from_dict(summary))
-            ]
+            reply_messages = [FlexMessage(alt_text=f"ใบเสนอราคา {quotation['order_name']}", contents=FlexContainer.from_dict(summary))]
             await session_service.clear_cart(user_id)
 
     else:
-        reply_messages = [
-            TextMessage(text="ขออภัยครับ ลองพิมพ์ชื่อสินค้าที่ต้องการได้เลยครับ 😊")
-        ]
+        reply_messages = [TextMessage(text="ขออภัยครับ ลองพิมพ์ชื่อสินค้าที่ต้องการได้เลยครับ 😊")]
 
     if reply_messages:
-        await line_api.reply_message(
-            ReplyMessageRequest(reply_token=reply_token, messages=reply_messages[:5])
-        )
+        await line_api.reply_message(ReplyMessageRequest(reply_token=reply_token, messages=reply_messages[:5]))
 
 
 @app.get("/health")
