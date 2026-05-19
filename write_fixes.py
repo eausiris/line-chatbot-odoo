@@ -1,4 +1,4 @@
-import logging
+content = '''import logging
 import hashlib
 import hmac
 import base64
@@ -76,7 +76,7 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
 
     if intent == "greeting":
         reply_messages = [
-            TextMessage(text=f"สวัสดีครับ! ยินดีต้อนรับสู่ {settings.business_name}\nถามถึงสินค้า ราคา หรือสั่งซื้อได้เลยครับ")
+            TextMessage(text=f"สวัสดีครับ! ยินดีต้อนรับสู่ {settings.business_name}\\nถามถึงสินค้า ราคา หรือสั่งซื้อได้เลยครับ")
         ]
 
     elif intent == "search_product":
@@ -87,7 +87,7 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
         )
         if not products:
             reply_messages = [
-                TextMessage(text=f"ขออภัยครับ ไม่พบสินค้า '{keyword}' ลองค้นหาคำอื่นได้เลยครับ")
+                TextMessage(text=f"ขออภัยครับ ไม่พบสินค้า \'{keyword}\' ลองค้นหาคำอื่นได้เลยครับ")
             ]
         else:
             session["last_viewed_product"] = products[0]
@@ -129,7 +129,7 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
             session = await session_service.get_session(user_id)
             summary = order_summary_bubble(session["cart"])
             reply_messages = [
-                TextMessage(text=f"เพิ่ม {product['name']} x{qty} ลงตะกร้าแล้วครับ! 🛒"),
+                TextMessage(text=f"เพิ่ม {product[\'name\']} x{qty} ลงตะกร้าแล้วครับ! 🛒"),
                 FlexMessage(alt_text="ตะกร้าสินค้า",
                             contents=FlexContainer.from_dict(summary))
             ]
@@ -144,7 +144,7 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
             session = await session_service.get_session(user_id)
             summary = order_summary_bubble(session["cart"])
             reply_messages = [
-                TextMessage(text=f"ปรับจำนวน {product['name']} เป็น {qty} ชิ้นแล้วครับ ✅"),
+                TextMessage(text=f"ปรับจำนวน {product[\'name\']} เป็น {qty} ชิ้นแล้วครับ ✅"),
                 FlexMessage(alt_text="ตะกร้าสินค้า",
                             contents=FlexContainer.from_dict(summary))
             ]
@@ -175,7 +175,7 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
             quotation = odoo.create_quotation(partner_id, session["cart"])
             summary = order_summary_bubble(session["cart"], quotation=quotation)
             reply_messages = [
-                FlexMessage(alt_text=f"ใบเสนอราคา {quotation['order_name']}",
+                FlexMessage(alt_text=f"ใบเสนอราคา {quotation[\'order_name\']}",
                             contents=FlexContainer.from_dict(summary))
             ]
             await session_service.clear_cart(user_id)
@@ -196,3 +196,8 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": settings.business_name}
+'''
+
+with open("app/main.py", "w", encoding="utf-8") as f:
+    f.write(content)
+print("app/main.py written")
