@@ -38,6 +38,25 @@ def detect_keyword_intent(text: str) -> str:
     return ""
 
 
+def build_greeting(history: dict, business_name: str) -> str:
+    """สร้างข้อความทักทายตามประวัติลูกค้า"""
+    if not history.get("is_returning") or not history.get("last_products"):
+        return f"สวัสดีครับ! ยินดีต้อนรับสู่ {business_name}\nถามถึงสินค้า ราคา หรือสั่งซื้อได้เลยครับ"
+
+    name = history["name"]
+    products = history["last_products"]
+    order_count = history.get("order_count", 0)
+
+    # สร้างรายการสินค้าล่าสุด
+    product_list = ", ".join(f"{p['name']} x{p['qty']}" for p in products[:3])
+
+    greeting = f"สวัสดีคุณ{name}ครับ! ยินดีต้อนรับกลับมา 😊\n"
+    greeting += f"ครั้งที่แล้วคุณซื้อ {product_list}\n"
+    greeting += f"อยากสั่งซ้ำหรือมีอะไรให้ช่วยไหมครับ?"
+
+    return greeting
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Bakesome Bot started")
@@ -85,7 +104,16 @@ async def handle_text_message(line_api: AsyncMessagingApi, event: MessageEvent):
     reply_messages = []
 
     if intent == "greeting":
-        reply_messages = [TextMessage(text=f"สวัสดีครับ! ยินดีต้อนรับสู่ {settings.business_name}\nถามถึงสินค้า ราคา หรือสั่งซื้อได้เลยครับ")]
+        # ดึงประวัติลูกค้า
+        history = odoo.get_customer_history(user_id)
+        greeting_text = build_greeting(history, settings.business_name)
+        reply_messages = [TextMessage(text=greeting_text)]
+
+        # ถ้าเป็นลูกค้าเก่า ถามว่าอยากสั่งซ้ำไหม
+        if history.get("is_returning") and history.get("last_products"):
+            reply_messages.append(
+                TextMessage(text=f"พิมพ์ชื่อสินค้าที่ต้องการ หรือพิมพ์ '{history['last_products'][0]['name']}' เพื่อค้นหาสินค้าเดิมได้เลยครับ 👇")
+            )
 
     elif intent == "search_product":
         keyword = entities.get("product_name", "")
